@@ -103,7 +103,7 @@ def plot_training_history(
 def plot_predictions(
     model: torch.nn.Module,
     test_loader: DataLoader,
-    device: torch.device,
+    device: str,
     model_name: str,
     num_samples: Optional[int] = None,
     save_path: str = '../outputs/visualizations'

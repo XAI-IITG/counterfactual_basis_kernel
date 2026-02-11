@@ -1,0 +1,16 @@
+rule_template,count_low,count_high
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[11,49](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down)",13,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[11,49](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up)",13,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[4,10](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down)",13,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[1,3](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down)",13,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[4,10](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up)",13,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[11,49](sensor_11:q3|sensor_4:q2|sensor_12:q0|sensor_11:trend=up)",13,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down THEN F_[11,49](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up)",12,1
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down THEN F_[4,10](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up)",12,1
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down THEN F_[11,49](sensor_11:q3|sensor_4:q2|sensor_12:q0|sensor_11:trend=up)",12,1
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[1,3](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up)",12,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down THEN F_[1,3](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up)",12,1
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[11,49](sensor_11:q2|sensor_4:q2|sensor_12:q1|sensor_11:trend=down)",12,0
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down THEN F_[11,49](sensor_11:q3|sensor_4:q3|sensor_12:q1|sensor_11:trend=up)",11,1
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down THEN F_[4,10](sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=down)",11,1
+"IF sensor_11:q3|sensor_4:q3|sensor_12:q0|sensor_11:trend=up THEN F_[11,49](sensor_11:q2|sensor_4:q2|sensor_12:q0|sensor_11:trend=down)",11,0

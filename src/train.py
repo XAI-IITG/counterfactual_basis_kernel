@@ -16,9 +16,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.data_loader.CMAPSSDataLoader import CMAPSSDataLoader
-from src.data_loader.CMAPSSTimeSeriesDataset import CMAPSSTimeSeriesDataset
-from src.data_loader.CMAPSSDatasetWrapper import CMAPSSDatasetWrapper
+from src.data_loader.cmapss.CMAPSSDataLoader import CMAPSSDataLoader
+from src.data_loader.cmapss.CMAPSSTimeSeriesDataset import CMAPSSTimeSeriesDataset
+from src.data_loader.cmapss.CMAPSSDatasetWrapper import CMAPSSDatasetWrapper
 from src.models.LSTMModel import LSTMModel
 from src.models.GRUModel import GRUModel
 from src.models.CNNLSTMModel import CNNLSTMModel
