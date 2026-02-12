@@ -26,8 +26,9 @@ class TransformerModel(nn.Module):
     """Transformer encoder for RUL prediction"""
     
     def __init__(self, input_size: int, d_model: int = 128, nhead: int = 4, 
-                 num_layers: int = 2, dim_feedforward: int = 256, dropout: float = 0.2):
+                 num_layers: int = 2, dim_feedforward: int = 256, dropout: float = 0.2, output_activation=None):
         super().__init__()
+        self.output_activation = output_activation
         
         # Input projection
         self.input_proj = nn.Linear(input_size, d_model)
@@ -66,8 +67,17 @@ class TransformerModel(nn.Module):
         # Use last token
         out = self.fc(transformer_out[:, -1, :])
         
+        # if self.output_activation is not None:
+        #     if self.output_activation == "sigmoid":
+        #         out = torch.sigmoid(out)
+        #     elif self.output_activation == "relu":
+        #         out = torch.relu(out)
+        #     elif self.output_activation == "tanh":
+        #         out = torch.tanh(out)
+
         if return_hidden:
             return out, {'transformer_out': transformer_out}
+        
         return out
 
 

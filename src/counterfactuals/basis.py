@@ -92,6 +92,7 @@ class RBFBasis(TemporalBasis):
         # Normalize so peaks are consistent
         return phi
 
+
 class BSplineBasis(TemporalBasis):
     def __init__(self, sequence_length, num_basis, degree=3):
         super().__init__(sequence_length, num_basis)
@@ -109,7 +110,8 @@ class BSplineBasis(TemporalBasis):
         for i in range(self.K + self.degree):
             cond1 = t >= kv[i]
             cond2 = t < kv[i+1]
-            if i == self.K + self.degree - 1: cond2 = t <= kv[i+1]
+            if i == self.K + self.degree - 1: 
+                cond2 = t <= kv[i+1]
             basis_0.append((cond1 & cond2).float())
         
         bases = torch.cat(basis_0, dim=1)
@@ -120,16 +122,14 @@ class BSplineBasis(TemporalBasis):
                 # Term 1
                 denom1 = kv[i+d] - kv[i]
                 if denom1 < 1e-6:
-                    # FIX: Use torch.zeros_like instead of 0.0
-                    term1 = torch.zeros_like(bases[:, i:i+1])
+                    term1 = torch.zeros_like(t)
                 else:
                     term1 = ((t - kv[i]) / denom1) * bases[:, i:i+1]
                 
                 # Term 2
                 denom2 = kv[i+d+1] - kv[i+1]
                 if denom2 < 1e-6:
-                    # FIX: Use torch.zeros_like instead of 0.0
-                    term2 = torch.zeros_like(bases[:, i+1:i+2])
+                    term2 = torch.zeros_like(t)
                 else:
                     term2 = ((kv[i+d+1] - t) / denom2) * bases[:, i+1:i+2]
                     
@@ -137,6 +137,7 @@ class BSplineBasis(TemporalBasis):
             bases = torch.cat(new_bases, dim=1)
             
         return bases
+
 
 class WaveletBasis(TemporalBasis):
     """

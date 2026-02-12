@@ -1,22 +1,14 @@
-"""
-Trainer Module for RUL Prediction Models
-
-This module provides a comprehensive training framework for deep learning models
-used in Remaining Useful Life (RUL) prediction tasks, specifically designed for
-the CMAPSS dataset.
-"""
-
 import os
 import json
+from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass, field
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 from src.utils.EarlyStopping import EarlyStopping
@@ -24,333 +16,310 @@ from src.utils.EarlyStopping import EarlyStopping
 
 @dataclass
 class TrainingConfig:
-    """Configuration for training parameters"""
+    # core
     num_epochs: int = 180
-    learning_rate: float = 0.001
+    learning_rate: float = 1e-3
     weight_decay: float = 1e-5
     batch_size: int = 32
-    early_stopping_patience: int = 20
-    early_stopping_start_epoch: int = 80
     gradient_clip_value: float = 1.0
-    
-    # Scheduler parameters
-    scheduler_factor: float = 0.6
-    scheduler_patience: int = 30
-    scheduler_mode: str = 'min'
-    
-    # Logging and saving
+    # saving/logging
+    save_path: str = "../outputs/saved_models"
+    model_name: str = "model"
     save_every_n_epochs: int = 10
     print_every_n_epochs: int = 5
-    
-    # Paths
-    save_path: str = '../outputs/saved_models'
-    model_name: str = 'model'
+
+    # early stopping
+    early_stopping_patience: int = 20
+    early_stopping_min_delta: float = 0.0  # works only if your EarlyStopping supports it; safe otherwise
+    early_stopping_start_epoch: int = 0
+
+    # scheduler (ReduceLROnPlateau)
+    scheduler_factor: float = 0.6
+    scheduler_patience: int = 30
+    scheduler_mode: str = "min"
+    scheduler_min_lr: float = 1e-6
+    scheduler_metric: str = "loss"  # metric fed to ReduceLROnPlateau.step()
+
+    # BEST model selection + early stop monitor (must exist in val_metrics)
+    monitor_metric: str = "loss"    # "loss" or "nasa_score" etc.
+    monitor_mode: Optional[str] = None  # if None -> inferred
 
 
 class RULMetrics:
-    """Utility class for RUL-specific metrics calculation"""
-    
     @staticmethod
     def nasa_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        """
-        Calculate NASA scoring function for RUL prediction.
-        
-        This score penalizes late predictions more heavily than early predictions,
-        which is crucial for maintenance scheduling.
-        
-        Args:
-            y_true: Ground truth RUL values
-            y_pred: Predicted RUL values
-            
-        Returns:
-            NASA score (lower is better)
-        """
         diff = y_pred - y_true
-        score = np.sum(np.where(diff < 0, np.exp(-diff/13) - 1, np.exp(diff/10) - 1))
+        score = np.sum(np.where(diff < 0, np.exp(-diff / 13) - 1, np.exp(diff / 10) - 1))
         return float(score)
     
     @staticmethod
     def calculate_all_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
-        """
-        Calculate comprehensive metrics for RUL prediction.
-        
-        Args:
-            y_true: Ground truth RUL values
-            y_pred: Predicted RUL values
-            
-        Returns:
-            Dictionary containing all calculated metrics
-        """
         mse = mean_squared_error(y_true, y_pred)
-        rmse = np.sqrt(mse)
-        mae = mean_absolute_error(y_true, y_pred)
-        r2 = r2_score(y_true, y_pred)
+        rmse = float(np.sqrt(mse))
+        mae = float(mean_absolute_error(y_true, y_pred))
+        r2 = float(r2_score(y_true, y_pred))
         score = RULMetrics.nasa_score(y_true, y_pred)
-        
-        return {
-            'mse': float(mse),
-            'rmse': float(rmse),
-            'mae': float(mae),
-            'r2': float(r2),
-            'nasa_score': float(score)
-        }
-
+        return {"mse": float(mse), "rmse": rmse, "mae": mae, "r2": r2, "nasa_score": float(score)}
 
 class Trainer:
-    """
-    Trainer class for RUL prediction models.
-    
-    This class handles the complete training pipeline including:
-    - Training and validation loops
-    - Metrics calculation and tracking
-    - Learning rate scheduling
-    - Early stopping
-    - Model checkpointing
-    - Training history logging
-    
-    Attributes:
-        model: PyTorch model to train
-        train_loader: DataLoader for training data
-        val_loader: DataLoader for validation data
-        criterion: Loss function
-        optimizer: Optimizer
-        device: Device to run training on (CPU/GPU)
-        config: Training configuration
-        history: Training history tracker
-    """
-    
-    def __init__(
-        self,
+    def __init__(self,
         model: nn.Module,
         train_loader: DataLoader,
         val_loader: DataLoader,
         device: torch.device,
-        config: Optional[TrainingConfig] = None
-    ):
-        """
-        Initialize the Trainer.
+        config: Optional[TrainingConfig] = None,
+        preprocess: Optional[Dict[str, Any]] = None):
         
-        Args:
-            model: PyTorch model to train
-            train_loader: DataLoader for training data
-            val_loader: DataLoader for validation data
-            device: Device to run training on
-            config: Training configuration (uses defaults if None)
-        """
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.config = config or TrainingConfig()
-        
-        # Initialize training components
+        self.preprocess = preprocess
+
+        os.makedirs(self.config.save_path, exist_ok=True)
+
         self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(
             self.model.parameters(),
             lr=self.config.learning_rate,
-            weight_decay=self.config.weight_decay
+            weight_decay=self.config.weight_decay,
         )
+
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
             mode=self.config.scheduler_mode,
             factor=self.config.scheduler_factor,
-            patience=self.config.scheduler_patience
+            patience=self.config.scheduler_patience,
+            min_lr=self.config.scheduler_min_lr,
         )
-        
-        # Initialize history tracker
+
         self.history: Dict[str, List[float]] = {
-            'train_loss': [],
-            'val_loss': [],
-            'val_rmse': [],
-            'val_mae': [],
-            'val_r2': [],
-            'val_nasa_score': [],
-            'learning_rate': []
+            "train_loss": [],
+            "val_loss": [],
+            "val_rmse": [],
+            "val_mae": [],
+            "val_r2": [],
+            "val_nasa_score": [],
+            "learning_rate": [],
         }
-        
-        # Best model tracking
-        self.best_score = float('inf')
-        self.best_epoch = 0
-        
-        # Setup early stopping
+
+        self.best_score: Optional[float] = None
+        self.best_epoch: int = 0
+
         self._setup_early_stopping()
-    
+
+    # ---------- helpers ---------- #
+
+    def _infer_monitor_mode(self) -> str:
+        if self.config.monitor_mode in ("min", "max"):
+            return self.config.monitor_mode
+
+        m = self.config.monitor_metric.lower()
+        # typical metrics
+        if m in ("loss", "mse", "rmse", "mae", "nasa_score"):
+            return "min"
+        if m in ("r2", "r2_score"):
+            return "max"
+        # safe default
+        return "min"
+
+    def _is_improvement(self, current: float) -> bool:
+        mode = self._infer_monitor_mode()
+        if self.best_score is None:
+            return True
+        if mode == "min":
+            return current < self.best_score
+        return current > self.best_score
+
+    @staticmethod
+    def _jsonable(x: Any) -> Any:
+        # make preprocess safe for json
+        if isinstance(x, (np.ndarray,)):
+            return x.tolist()
+        if isinstance(x, (np.float32, np.float64)):
+            return float(x)
+        if isinstance(x, (np.int32, np.int64)):
+            return int(x)
+        if isinstance(x, dict):
+            return {k: Trainer._jsonable(v) for k, v in x.items()}
+        if isinstance(x, (list, tuple)):
+            return [Trainer._jsonable(v) for v in x]
+        return x
+
+    def _paths_for(self, tag: str) -> Tuple[str, str, str]:
+        weights_path = os.path.join(self.config.save_path, f"{self.config.model_name}_{tag}.pth")
+        ckpt_path = os.path.join(self.config.save_path, f"{self.config.model_name}_{tag}.ckpt")
+        meta_path = os.path.join(self.config.save_path, f"{self.config.model_name}_{tag}_meta.json")
+        return weights_path, ckpt_path, meta_path
+
+    # ---------- early stopping ---------- #
+
     def _setup_early_stopping(self) -> None:
-        """Setup early stopping mechanism"""
-        os.makedirs(self.config.save_path, exist_ok=True)
-        checkpoint_path = os.path.join(
-            self.config.save_path,
-            f"{self.config.model_name}_checkpoint.pth"
-        )
-        
-        self.early_stopping = EarlyStopping(
-            patience=self.config.early_stopping_patience,
-            verbose=True,
-            path=checkpoint_path,
-            start_epoch=self.config.early_stopping_start_epoch
-        )
-    
+        # EarlyStopping will write its own checkpoint file, but we DO NOT rely on it for "best".
+        # We keep it just to stop training.
+        es_path = os.path.join(self.config.save_path, f"{self.config.model_name}_earlystop.pth")
+
+        # Works with both “simple” EarlyStopping and newer variants
+        try:
+            self.early_stopping = EarlyStopping(
+                patience=self.config.early_stopping_patience,
+                verbose=True,
+                path=es_path,
+                start_epoch=self.config.early_stopping_start_epoch,
+                min_delta=self.config.early_stopping_min_delta,
+                mode=self._infer_monitor_mode(),
+            )
+        except TypeError:
+            # fallback for older EarlyStopping signatures
+            self.early_stopping = EarlyStopping(
+                patience=self.config.early_stopping_patience,
+                verbose=True,
+                path=es_path,
+                start_epoch=self.config.early_stopping_start_epoch,
+            )
+
+    # ---------- core loops ---------- #
+
     def train_epoch(self, epoch: int) -> float:
-        """
-        Train for one epoch.
-        
-        Args:
-            epoch: Current epoch number
-            
-        Returns:
-            Average training loss for the epoch
-        """
         self.model.train()
         total_loss = 0.0
         num_batches = len(self.train_loader)
-        
-        progress_bar = tqdm(
-            self.train_loader,
-            desc=f"Epoch {epoch}/{self.config.num_epochs} [Train]",
-            leave=False
-        )
-        
-        for batch_idx, (data, target) in enumerate(progress_bar):
-            data = data.to(self.device)
-            target = target.to(self.device)
-            
-            # Forward pass
-            self.optimizer.zero_grad()
-            output = self.model(data).squeeze()
-            loss = self.criterion(output, target)
-            
-            # Backward pass
+
+        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch}/{self.config.num_epochs} [Train]", leave=False)
+        for x, y in pbar:
+            x = x.to(self.device).float()
+            y = y.to(self.device).float().view(-1)
+
+            self.optimizer.zero_grad(set_to_none=True)
+            yhat = self.model(x).view(-1)
+            loss = self.criterion(yhat, y)
+
             loss.backward()
-            
-            # Gradient clipping
-            if self.config.gradient_clip_value > 0:
-                torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(),
-                    max_norm=self.config.gradient_clip_value
-                )
-            
+            if self.config.gradient_clip_value and self.config.gradient_clip_value > 0:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.gradient_clip_value)
+
             self.optimizer.step()
-            
-            # Track loss
-            total_loss += loss.item()
-            progress_bar.set_postfix({'loss': f"{loss.item():.4f}"})
-        
-        progress_bar.close()
-        avg_loss = total_loss / num_batches
-        return avg_loss
-    
-    def validate_epoch(self, epoch: int) -> Tuple[Dict[str, float], np.ndarray, np.ndarray]:
-        """
-        Validate for one epoch.
-        
-        Args:
-            epoch: Current epoch number
-            
-        Returns:
-            Tuple of (metrics dictionary, predictions array, actuals array)
-        """
+
+            total_loss += float(loss.item())
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+        pbar.close()
+        return total_loss / max(1, num_batches)
+
+    @torch.no_grad()
+    def validate_epoch(self, epoch: int) -> Dict[str, float]:
         self.model.eval()
         total_loss = 0.0
-        predictions_list = []
-        actuals_list = []
+        preds: List[float] = []
+        trues: List[float] = []
+
         num_batches = len(self.val_loader)
-        
-        progress_bar = tqdm(
-            self.val_loader,
-            desc=f"Epoch {epoch}/{self.config.num_epochs} [Val]  ",
-            leave=False
-        )
-        
-        with torch.no_grad():
-            for data, target in progress_bar:
-                data = data.to(self.device)
-                target = target.to(self.device)
-                
-                # Forward pass
-                output = self.model(data).squeeze()
-                loss = self.criterion(output, target)
-                
-                # Track loss and predictions
-                total_loss += loss.item()
-                predictions_list.extend(output.cpu().numpy())
-                actuals_list.extend(target.cpu().numpy())
-                
-                progress_bar.set_postfix({'loss': f"{loss.item():.4f}"})
-        
-        progress_bar.close()
-        
-        # Convert to numpy arrays
-        predictions = np.array(predictions_list)
-        actuals = np.array(actuals_list)
-        
-        # Calculate all metrics
-        metrics = RULMetrics.calculate_all_metrics(actuals, predictions)
-        metrics['loss'] = total_loss / num_batches
-        
-        return metrics, predictions, actuals
-    
+        pbar = tqdm(self.val_loader, desc=f"Epoch {epoch}/{self.config.num_epochs} [Val]  ", leave=False)
+
+        for x, y in pbar:
+            x = x.to(self.device).float()
+            y = y.to(self.device).float().view(-1)
+
+            yhat = self.model(x).view(-1)
+            loss = self.criterion(yhat, y)
+
+            total_loss += float(loss.item())
+            preds.extend(yhat.detach().cpu().numpy().tolist())
+            trues.extend(y.detach().cpu().numpy().tolist())
+
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+        pbar.close()
+
+        y_true = np.array(trues, dtype=np.float32)
+        y_pred = np.array(preds, dtype=np.float32)
+
+        metrics = RULMetrics.calculate_all_metrics(y_true, y_pred)
+        metrics["loss"] = float(total_loss / max(1, num_batches))
+        return metrics
+
+    # ---------- saving ---------- #
+
     def save_history(self) -> None:
-        """Save training history to JSON file"""
-        json_path = os.path.join(
-            self.config.save_path,
-            f"{self.config.model_name}_history.json"
-        )
-        
-        # Convert to serializable format
-        history_serializable = {
-            key: [float(v) for v in values]
-            for key, values in self.history.items()
+        path = os.path.join(self.config.save_path, f"{self.config.model_name}_history.json")
+        serial = {k: [float(v) for v in vals] for k, vals in self.history.items()}
+        with open(path, "w") as f:
+            json.dump(serial, f, indent=2)
+
+    def save_checkpoint(self, epoch: int, tag: str) -> None:
+        """
+        Writes:
+        - <model_name>_<tag>.pth   : pure model.state_dict()  (for easy inference)
+        - <model_name>_<tag>.ckpt  : full checkpoint dict     (for resume/repro)
+        - <model_name>_<tag>_meta.json : tiny human-readable metadata
+        """
+        weights_path, ckpt_path, meta_path = self._paths_for(tag)
+
+        # (A) weights only (.pth) — best for inference
+        torch.save(self.model.state_dict(), weights_path)
+
+        # (B) full ckpt (.ckpt)
+        preprocess = self._jsonable(self.preprocess) if self.preprocess is not None else None
+
+        ckpt = {
+            "epoch": int(epoch),
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "scheduler_state_dict": self.scheduler.state_dict() if self.scheduler is not None else None,
+            "best_score": float(self.best_score) if self.best_score is not None else None,
+            "best_epoch": int(self.best_epoch),
+            "history": self.history,
+            "config": self.config.__dict__,
+            "preprocess": preprocess,
         }
-        
-        with open(json_path, 'w') as f:
-            json.dump(history_serializable, f, indent=4)
-    
-    def save_checkpoint(self, epoch: int, is_best: bool = False) -> None:
+        torch.save(ckpt, ckpt_path)
+
+        # (C) tiny meta json (optional)
+        try:
+            meta = {
+                "epoch": int(epoch),
+                "best_epoch": int(self.best_epoch),
+                "best_score": float(self.best_score) if self.best_score is not None else None,
+                "monitor_metric": self.config.monitor_metric,
+                "monitor_mode": self._infer_monitor_mode(),
+                "weights_file": os.path.basename(weights_path),
+                "ckpt_file": os.path.basename(ckpt_path),
+                "n_features": len(preprocess.get("feature_cols", [])) if isinstance(preprocess, dict) else None,
+                "sequence_length": preprocess.get("sequence_length") if isinstance(preprocess, dict) else None,
+                "max_rul": preprocess.get("max_rul") if isinstance(preprocess, dict) else None,
+            }
+            with open(meta_path, "w") as f:
+                json.dump(meta, f, indent=2)
+        except Exception:
+            pass
+
+    def load_checkpoint(self, path: str) -> None:
         """
-        Save model checkpoint.
-        
-        Args:
-            epoch: Current epoch number
-            is_best: Whether this is the best model so far
+        Supports:
+        - weights-only .pth  (state_dict)
+        - full .ckpt         (dict with model_state_dict, optimizer_state_dict, ...)
         """
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-            'best_score': self.best_score,
-            'history': self.history,
-            'config': self.config.__dict__
-        }
-        
-        filename = f"{self.config.model_name}_{'best' if is_best else 'final'}.pth"
-        save_path = os.path.join(self.config.save_path, filename)
-        torch.save(checkpoint, save_path)
-    
-    def load_checkpoint(self, checkpoint_path: str) -> None:
-        """
-        Load model checkpoint.
-        
-        Args:
-            checkpoint_path: Path to checkpoint file
-        """
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        
-        if 'scheduler_state_dict' in checkpoint:
-            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        
-        if 'history' in checkpoint:
-            self.history = checkpoint['history']
-        
-        if 'best_score' in checkpoint:
-            self.best_score = checkpoint['best_score']
-    
+        obj = torch.load(path, map_location=self.device)
+        if isinstance(obj, dict) and "model_state_dict" in obj:
+            self.model.load_state_dict(obj["model_state_dict"])
+            if "optimizer_state_dict" in obj and obj["optimizer_state_dict"] is not None:
+                self.optimizer.load_state_dict(obj["optimizer_state_dict"])
+            if "scheduler_state_dict" in obj and obj["scheduler_state_dict"] is not None and self.scheduler is not None:
+                self.scheduler.load_state_dict(obj["scheduler_state_dict"])
+            self.best_score = obj.get("best_score", self.best_score)
+            self.best_epoch = obj.get("best_epoch", self.best_epoch)
+            if "history" in obj and obj["history"] is not None:
+                self.history = obj["history"]
+            self.preprocess = obj.get("preprocess", self.preprocess)
+        else:
+            # assume weights-only state_dict
+            self.model.load_state_dict(obj)
+
+    # ---------- train ---------- #
+
     def _print_epoch_summary(self, epoch: int, train_loss: float, val_metrics: Dict[str, float]) -> None:
-        """Print detailed epoch summary"""
-        current_lr = self.optimizer.param_groups[0]['lr']
-        
+        lr = self.optimizer.param_groups[0]["lr"]
         tqdm.write(f"\n{'='*80}")
         tqdm.write(f"Epoch [{epoch}/{self.config.num_epochs}] Summary")
         tqdm.write(f"{'='*80}")
@@ -360,140 +329,123 @@ class Trainer:
         tqdm.write(f"  Val MAE:        {val_metrics['mae']:.6f}")
         tqdm.write(f"  Val R²:         {val_metrics['r2']:.6f}")
         tqdm.write(f"  Val NASA Score: {val_metrics['nasa_score']:.2f}")
-        tqdm.write(f"  Learning Rate:  {current_lr:.8f}")
+        tqdm.write(f"  LR:             {lr:.8f}")
+        tqdm.write(f"  Monitor:        {self.config.monitor_metric} ({self._infer_monitor_mode()})")
         tqdm.write(f"{'='*80}\n")
-    
+
     def train(self) -> Dict[str, List[float]]:
-        """
-        Execute the complete training loop.
-        
-        Returns:
-            Training history dictionary
-        """
         print(f"\n{'='*80}")
         print(f"Training Model: {self.config.model_name}")
         print(f"{'='*80}")
         print(f"Configuration:")
-        print(f"  Epochs: {self.config.num_epochs}")
-        print(f"  Learning Rate: {self.config.learning_rate}")
-        print(f"  Batch Size: {self.config.batch_size}")
-        print(f"  Device: {self.device}")
-        print(f"  Save Path: {self.config.save_path}")
+        print(f"  Epochs:        {self.config.num_epochs}")
+        print(f"  LR:            {self.config.learning_rate}")
+        print(f"  Batch Size:    {self.config.batch_size}")
+        print(f"  Device:        {self.device}")
+        print(f"  Save Path:     {self.config.save_path}")
+        print(f"  Monitor:       {self.config.monitor_metric} ({self._infer_monitor_mode()})")
         print(f"{'='*80}\n")
-        
-        # Main training loop
-        epoch_progress = tqdm(
-            range(1, self.config.num_epochs + 1),
-            desc="Overall Progress",
-            position=0
-        )
-        
-        for epoch in epoch_progress:
-            # Training phase
+
+        overall = tqdm(range(1, self.config.num_epochs + 1), desc="Overall Progress", position=0)
+
+        for epoch in overall:
             train_loss = self.train_epoch(epoch)
-            
-            # Validation phase
-            val_metrics, predictions, actuals = self.validate_epoch(epoch)
-            
-            # Update learning rate scheduler
-            self.scheduler.step(val_metrics['loss'])
-            current_lr = self.optimizer.param_groups[0]['lr']
-            
-            # Update history
-            self.history['train_loss'].append(train_loss)
-            self.history['val_loss'].append(val_metrics['loss'])
-            self.history['val_rmse'].append(val_metrics['rmse'])
-            self.history['val_mae'].append(val_metrics['mae'])
-            self.history['val_r2'].append(val_metrics['r2'])
-            self.history['val_nasa_score'].append(val_metrics['nasa_score'])
-            self.history['learning_rate'].append(current_lr)
-            
-            # Update progress bar
-            epoch_progress.set_postfix({
-                'train_loss': f"{train_loss:.4f}",
-                'val_loss': f"{val_metrics['loss']:.4f}",
-                'nasa_score': f"{val_metrics['nasa_score']:.2f}",
-                'lr': f"{current_lr:.2e}"
-            })
-            
-            # Print detailed summary periodically
+            val_metrics = self.validate_epoch(epoch)
+
+            # Scheduler: ReduceLROnPlateau expects a metric value after validation. :contentReference[oaicite:5]{index=5}
+            sched_key = self.config.scheduler_metric
+            if self.scheduler is not None:
+                metric_for_sched = float(val_metrics.get(sched_key, val_metrics["loss"]))
+                self.scheduler.step(metric_for_sched)
+
+            lr = self.optimizer.param_groups[0]["lr"]
+
+            # history
+            self.history["train_loss"].append(float(train_loss))
+            self.history["val_loss"].append(float(val_metrics["loss"]))
+            self.history["val_rmse"].append(float(val_metrics["rmse"]))
+            self.history["val_mae"].append(float(val_metrics["mae"]))
+            self.history["val_r2"].append(float(val_metrics["r2"]))
+            self.history["val_nasa_score"].append(float(val_metrics["nasa_score"]))
+            self.history["learning_rate"].append(float(lr))
+
+            # progress bar
+            overall.set_postfix(
+                train_loss=f"{train_loss:.4f}",
+                val_loss=f"{val_metrics['loss']:.4f}",
+                nasa=f"{val_metrics['nasa_score']:.1f}",
+                lr=f"{lr:.2e}",
+            )
+
+            # print
             if epoch % self.config.print_every_n_epochs == 0 or epoch == 1:
                 self._print_epoch_summary(epoch, train_loss, val_metrics)
-            
-            # Track best model
-            if val_metrics['nasa_score'] < self.best_score:
-                self.best_score = val_metrics['nasa_score']
+
+            # best + save (same metric as early stop)
+            monitor_key = self.config.monitor_metric
+            if monitor_key not in val_metrics:
+                raise KeyError(f"monitor_metric='{monitor_key}' not found in val_metrics keys={list(val_metrics.keys())}")
+
+            monitor_value = float(val_metrics[monitor_key])
+
+            if self._is_improvement(monitor_value):
+                self.best_score = monitor_value
                 self.best_epoch = epoch
-                self.save_checkpoint(epoch, is_best=True)
-            
-            # Early stopping check
-            self.early_stopping(val_metrics['loss'], self.model, epoch)
-            
-            if self.early_stopping.early_stop:
-                tqdm.write(f"\n⚠ Early stopping triggered at epoch {epoch}")
+                self.save_checkpoint(epoch, tag="best")
+
+            # early stopping check (same monitor)
+            self.early_stopping(monitor_value, self.model, epoch)
+            if getattr(self.early_stopping, "early_stop", False):
+                tqdm.write(f"\n⚠ Early stopping at epoch {epoch}")
                 break
-            
-            # Periodic history saving
+
             if epoch % self.config.save_every_n_epochs == 0:
                 self.save_history()
-        
-        epoch_progress.close()
-        
-        # Load best model
-        self.early_stopping.load_checkpoint(self.model)
-        
-        # Save final model and history
-        self.save_checkpoint(self.best_epoch, is_best=False)
+                self.save_checkpoint(epoch, tag="last")
+
+        overall.close()
+
+        # Save final "last" and history
+        self.save_checkpoint(epoch, tag="last")
         self.save_history()
-        
-        # Print training summary
+
+        # Load best weights into model for downstream use
+        best_weights, _, _ = self._paths_for("best")
+        if os.path.exists(best_weights):
+            # weights-only is the correct inference path. :contentReference[oaicite:6]{index=6}
+            self.model.load_state_dict(torch.load(best_weights, map_location=self.device))
+
         print(f"\n{'='*80}")
-        print(f"Training Completed!")
+        print("Training Completed!")
         print(f"{'='*80}")
-        print(f"  Best Epoch:       {self.best_epoch}")
-        print(f"  Best NASA Score:  {self.best_score:.2f}")
-        print(f"  Model saved to:   {self.config.save_path}")
+        print(f"  Best Epoch:      {self.best_epoch}")
+        print(f"  Best({self.config.monitor_metric}): {self.best_score}")
+        print(f"  Saved to:        {self.config.save_path}")
         print(f"{'='*80}\n")
-        
+
         return self.history
-    
+
+    @torch.no_grad()
     def evaluate(self, test_loader: DataLoader) -> Tuple[Dict[str, float], np.ndarray, np.ndarray]:
-        """
-        Evaluate model on test data.
-        
-        Args:
-            test_loader: DataLoader for test data
-            
-        Returns:
-            Tuple of (metrics dictionary, predictions array, actuals array)
-        """
         self.model.eval()
         total_loss = 0.0
-        predictions_list = []
-        actuals_list = []
-        
-        progress_bar = tqdm(test_loader, desc="Evaluating", leave=True)
-        
-        with torch.no_grad():
-            for data, target in progress_bar:
-                data = data.to(self.device)
-                target = target.to(self.device)
-                
-                output = self.model(data).squeeze()
-                loss = self.criterion(output, target)
-                
-                total_loss += loss.item()
-                predictions_list.extend(output.cpu().numpy())
-                actuals_list.extend(target.cpu().numpy())
-                
-                progress_bar.set_postfix({'loss': f"{loss.item():.4f}"})
-        
-        progress_bar.close()
-        
-        predictions = np.array(predictions_list)
-        actuals = np.array(actuals_list)
-        
-        metrics = RULMetrics.calculate_all_metrics(actuals, predictions)
-        metrics['loss'] = total_loss / len(test_loader)
-        
-        return metrics, predictions, actuals
+        preds: List[float] = []
+        trues: List[float] = []
+
+        for x, y in tqdm(test_loader, desc="Evaluating", leave=True):
+            x = x.to(self.device).float()
+            y = y.to(self.device).float().view(-1)
+            yhat = self.model(x).view(-1)
+
+            loss = self.criterion(yhat, y)
+            total_loss += float(loss.item())
+
+            preds.extend(yhat.detach().cpu().numpy().tolist())
+            trues.extend(y.detach().cpu().numpy().tolist())
+
+        y_true = np.array(trues, dtype=np.float32)
+        y_pred = np.array(preds, dtype=np.float32)
+
+        metrics = RULMetrics.calculate_all_metrics(y_true, y_pred)
+        metrics["loss"] = float(total_loss / max(1, len(test_loader)))
+        return metrics, y_pred, y_true
