@@ -1,40 +1,25 @@
-# Custom loss functions (DPP, Sparsity, Validity, Smoothness)
+# Custom loss functions (DPP, Sparsity, Validity)
 import torch
-from typing import Optional
-
 
 def validity_loss(y_pred: torch.Tensor, y_target: torch.Tensor) -> torch.Tensor:
     """
     MSE Loss ensuring prediction moves towards target.
-
-    L_valid = (1/N) * sum_i (f(X_cf^i) - y_target)^2
     """
     return torch.mean((y_pred - y_target) ** 2)
 
-
-def proximity_loss(
-    Delta: torch.Tensor,
-    mad_inv: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
+def proximity_loss(Delta: torch.Tensor) -> torch.Tensor:
     """
-    Feature-normalised Frobenius-norm proximity loss.
-
-    L_prox = (1/N) * sum_i || Delta^(i) * D_mad ||_F^2
-
-    where D_mad is a diagonal matrix of inverse MADs (per feature).
-    If mad_inv is None, falls back to unscaled L2.
-
-    Delta shape : (N, T, D)
-    mad_inv shape : (D,)  — optional, inverse MAD per feature
+    L2 norm of the perturbation in the time domain.
+    Delta shape: (N, T, D)
+    ✅ ENHANCED: Penalize both average and maximum changes
     """
-    if mad_inv is not None:
-        # Scale each feature column by its inverse MAD
-        Delta = Delta * mad_inv.unsqueeze(0).unsqueeze(0)  # (1, 1, D)
-
-    # Average Frobenius-norm squared across counterfactuals
+    # Average L2 norm across all dimensions
     l2_norm = torch.mean(torch.sum(Delta ** 2, dim=(1, 2)))
-
-    return l2_norm
+    
+    # ✅ FIX: Use reshape instead of view for non-contiguous tensors
+    max_change = torch.mean(torch.max(torch.abs(Delta).reshape(Delta.shape[0], -1), dim=1)[0])
+    
+    return l2_norm + 0.5 * max_change
 
 def sparsity_loss(W: torch.Tensor) -> torch.Tensor:
     """
