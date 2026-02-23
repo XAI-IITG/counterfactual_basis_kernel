@@ -19,10 +19,10 @@ from src.data_loader.cmapss.CMAPSSDataLoader import CMAPSSDataLoader
 from src.data_loader.cmapss.CMAPSSTimeSeriesDataset import CMAPSSTimeSeriesDataset
 from src.data_loader.cmapss.CMAPSSDatasetWrapper import CMAPSSDatasetWrapper
 
-from src.models.LSTMModel import LSTMModel
-from src.models.GRUModel import GRUModel
-from src.models.CNNLSTMModel import CNNLSTMModel
-from src.models.TransformerModel import TransformerModel
+from src.models.cmapss.LSTMModel import LSTMModel
+from src.models.cmapss.GRUModel import GRUModel
+from src.models.cmapss.CNNLSTMModel import CNNLSTMModel
+from src.models.cmapss.TransformerModel import TransformerModel
 
 from src.trainer.Trainer import Trainer, TrainingConfig
 
@@ -255,9 +255,9 @@ def main():
         history, trainer = train_single_model(
             model_type=model_type,
             train_loader=train_loader,
-            val_loader=val_loader,          # ✅ REAL validation set (not test)
-            preprocess=preprocess,          # ✅ saved into checkpoint
-            device=device,                  # ✅ torch.device, not a string
+            val_loader=val_loader,          
+            preprocess=preprocess,          
+            device=device,                  
             num_epochs=mc["epochs"],
             learning_rate=mc["lr"],
             save_path=save_path,
