@@ -24,7 +24,7 @@ from src.models.cmapss.GRUModel import GRUModel
 from src.models.cmapss.CNNLSTMModel import CNNLSTMModel
 from src.models.cmapss.TransformerModel import TransformerModel
 
-from src.trainer.Trainer import Trainer, TrainingConfig
+from src.trainer.Trainer import Trainer, TrainingConfig, NASAScore
 
 
 def seed_everything(seed: int = 42):
@@ -205,7 +205,10 @@ def train_single_model(
         early_stopping_start_epoch=80,
         gradient_clip_value=1.0,
         save_path=save_path,
-        model_name=f"{model_type}_best",  # produces *_best.pth and *_best.ckpt
+        dataset_name="cmapss",
+        model_name=f"{model_type}_best",
+        custom_metrics={"nasa_score": NASAScore.compute},
+        progress_bar_extra_metric="nasa_score",
     )
 
     trainer = Trainer(

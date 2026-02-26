@@ -1,7 +1,7 @@
 import os
 import json
-from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional, Any
+from dataclasses import dataclass, field
+from typing import Dict, List, Tuple, Optional, Any, Callable
 
 import numpy as np
 import torch
@@ -14,6 +14,47 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from src.utils.EarlyStopping import EarlyStopping
 
 
+# ── Metric helpers ───────────────────────────────────────────────────────────
+# A custom metric function signature:  (y_true: ndarray, y_pred: ndarray) -> float
+CustomMetricFn = Callable[[np.ndarray, np.ndarray], float]
+
+
+class RegressionMetrics:
+    """Generic regression metrics — dataset-agnostic."""
+
+    @staticmethod
+    def calculate(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+        mse = mean_squared_error(y_true, y_pred)
+        rmse = float(np.sqrt(mse))
+        mae = float(mean_absolute_error(y_true, y_pred))
+        r2 = float(r2_score(y_true, y_pred))
+        return {"mse": float(mse), "rmse": rmse, "mae": mae, "r2": r2}
+
+
+class NASAScore:
+    """CMAPSS-specific asymmetric scoring function (for backward compat)."""
+
+    @staticmethod
+    def __call__(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        return NASAScore.compute(y_true, y_pred)
+
+    @staticmethod
+    def compute(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        diff = y_pred - y_true
+        return float(np.sum(np.where(diff < 0, np.exp(-diff / 13) - 1, np.exp(diff / 10) - 1)))
+
+
+# Backward-compatible alias so existing code that imports RULMetrics still works.
+class RULMetrics:
+    nasa_score = staticmethod(NASAScore.compute)
+
+    @staticmethod
+    def calculate_all_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+        metrics = RegressionMetrics.calculate(y_true, y_pred)
+        metrics["nasa_score"] = NASAScore.compute(y_true, y_pred)
+        return metrics
+
+
 @dataclass
 class TrainingConfig:
     # core
@@ -23,6 +64,7 @@ class TrainingConfig:
     batch_size: int = 32
     gradient_clip_value: float = 1.0
     # saving/logging
+    dataset_name: str = "generic"
     save_path: str = "../outputs/saved_models"
     model_name: str = "model"
     save_every_n_epochs: int = 10
@@ -30,7 +72,7 @@ class TrainingConfig:
 
     # early stopping
     early_stopping_patience: int = 20
-    early_stopping_min_delta: float = 0.0  # works only if your EarlyStopping supports it; safe otherwise
+    early_stopping_min_delta: float = 0.0
     early_stopping_start_epoch: int = 0
 
     # scheduler (ReduceLROnPlateau)
@@ -41,25 +83,19 @@ class TrainingConfig:
     scheduler_metric: str = "loss"  # metric fed to ReduceLROnPlateau.step()
 
     # BEST model selection + early stop monitor (must exist in val_metrics)
-    monitor_metric: str = "loss"    # "loss" or "nasa_score" etc.
+    monitor_metric: str = "loss"    # "loss", "rmse", "nasa_score", etc.
     monitor_mode: Optional[str] = None  # if None -> inferred
 
+    # Extra dataset-specific metrics.
+    # Mapping of name -> callable(y_true, y_pred) -> float.
+    # These are computed alongside the generic regression metrics.
+    # Example:  {"nasa_score": NASAScore.compute}
+    custom_metrics: Dict[str, CustomMetricFn] = field(default_factory=dict)
 
-class RULMetrics:
-    @staticmethod
-    def nasa_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        diff = y_pred - y_true
-        score = np.sum(np.where(diff < 0, np.exp(-diff / 13) - 1, np.exp(diff / 10) - 1))
-        return float(score)
-    
-    @staticmethod
-    def calculate_all_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
-        mse = mean_squared_error(y_true, y_pred)
-        rmse = float(np.sqrt(mse))
-        mae = float(mean_absolute_error(y_true, y_pred))
-        r2 = float(r2_score(y_true, y_pred))
-        score = RULMetrics.nasa_score(y_true, y_pred)
-        return {"mse": float(mse), "rmse": rmse, "mae": mae, "r2": r2, "nasa_score": float(score)}
+    # Which extra metric name to show on the tqdm progress bar (optional).
+    # Set to None to only show train_loss / val_loss.
+    progress_bar_extra_metric: Optional[str] = None
+
 
 class Trainer:
     def __init__(self,
@@ -94,15 +130,14 @@ class Trainer:
             min_lr=self.config.scheduler_min_lr,
         )
 
-        self.history: Dict[str, List[float]] = {
-            "train_loss": [],
-            "val_loss": [],
-            "val_rmse": [],
-            "val_mae": [],
-            "val_r2": [],
-            "val_nasa_score": [],
-            "learning_rate": [],
-        }
+        # Build history keys dynamically: base metrics + any custom ones
+        self._base_metric_names = ["loss", "rmse", "mae", "r2"]
+        self._custom_metric_names = sorted(self.config.custom_metrics.keys())
+        self._all_val_metric_names = self._base_metric_names + self._custom_metric_names
+
+        self.history: Dict[str, List[float]] = {"train_loss": [], "learning_rate": []}
+        for m in self._all_val_metric_names:
+            self.history[f"val_{m}"] = []
 
         self.best_score: Optional[float] = None
         self.best_epoch: int = 0
@@ -116,12 +151,12 @@ class Trainer:
             return self.config.monitor_mode
 
         m = self.config.monitor_metric.lower()
-        # typical metrics
+        # lower-is-better metrics
         if m in ("loss", "mse", "rmse", "mae", "nasa_score"):
             return "min"
-        if m in ("r2", "r2_score"):
+        # higher-is-better metrics
+        if m in ("r2", "r2_score", "accuracy", "f1", "auc"):
             return "max"
-        # safe default
         return "min"
 
     def _is_improvement(self, current: float) -> bool:
@@ -235,8 +270,14 @@ class Trainer:
         y_true = np.array(trues, dtype=np.float32)
         y_pred = np.array(preds, dtype=np.float32)
 
-        metrics = RULMetrics.calculate_all_metrics(y_true, y_pred)
+        # Generic regression metrics
+        metrics = RegressionMetrics.calculate(y_true, y_pred)
         metrics["loss"] = float(total_loss / max(1, num_batches))
+
+        # Dataset-specific custom metrics
+        for name, fn in self.config.custom_metrics.items():
+            metrics[name] = float(fn(y_true, y_pred))
+
         return metrics
 
     # ---------- saving ---------- #
@@ -270,7 +311,7 @@ class Trainer:
             "best_score": float(self.best_score) if self.best_score is not None else None,
             "best_epoch": int(self.best_epoch),
             "history": self.history,
-            "config": self.config.__dict__,
+            "config": {k: v for k, v in self.config.__dict__.items() if k not in ("custom_metrics",)},
             "preprocess": preprocess,
         }
         torch.save(ckpt, ckpt_path)
@@ -324,11 +365,11 @@ class Trainer:
         tqdm.write(f"Epoch [{epoch}/{self.config.num_epochs}] Summary")
         tqdm.write(f"{'='*80}")
         tqdm.write(f"  Train Loss:     {train_loss:.6f}")
-        tqdm.write(f"  Val Loss:       {val_metrics['loss']:.6f}")
-        tqdm.write(f"  Val RMSE:       {val_metrics['rmse']:.6f}")
-        tqdm.write(f"  Val MAE:        {val_metrics['mae']:.6f}")
-        tqdm.write(f"  Val R²:         {val_metrics['r2']:.6f}")
-        tqdm.write(f"  Val NASA Score: {val_metrics['nasa_score']:.2f}")
+        # Print all validation metrics dynamically
+        for name in self._all_val_metric_names:
+            if name in val_metrics:
+                label = f"Val {name}".ljust(16)
+                tqdm.write(f"  {label}: {val_metrics[name]:.6f}")
         tqdm.write(f"  LR:             {lr:.8f}")
         tqdm.write(f"  Monitor:        {self.config.monitor_metric} ({self._infer_monitor_mode()})")
         tqdm.write(f"{'='*80}\n")
@@ -360,22 +401,23 @@ class Trainer:
 
             lr = self.optimizer.param_groups[0]["lr"]
 
-            # history
+            # history — dynamic based on available metrics
             self.history["train_loss"].append(float(train_loss))
-            self.history["val_loss"].append(float(val_metrics["loss"]))
-            self.history["val_rmse"].append(float(val_metrics["rmse"]))
-            self.history["val_mae"].append(float(val_metrics["mae"]))
-            self.history["val_r2"].append(float(val_metrics["r2"]))
-            self.history["val_nasa_score"].append(float(val_metrics["nasa_score"]))
+            for m in self._all_val_metric_names:
+                if m in val_metrics:
+                    self.history[f"val_{m}"].append(float(val_metrics[m]))
             self.history["learning_rate"].append(float(lr))
 
-            # progress bar
-            overall.set_postfix(
-                train_loss=f"{train_loss:.4f}",
-                val_loss=f"{val_metrics['loss']:.4f}",
-                nasa=f"{val_metrics['nasa_score']:.1f}",
-                lr=f"{lr:.2e}",
-            )
+            # progress bar — always show train/val loss + optional extra metric
+            postfix = {
+                "train_loss": f"{train_loss:.4f}",
+                "val_loss": f"{val_metrics['loss']:.4f}",
+                "lr": f"{lr:.2e}",
+            }
+            extra = self.config.progress_bar_extra_metric
+            if extra and extra in val_metrics:
+                postfix[extra] = f"{val_metrics[extra]:.2f}"
+            overall.set_postfix(**postfix)
 
             # print
             if epoch % self.config.print_every_n_epochs == 0 or epoch == 1:
@@ -446,6 +488,10 @@ class Trainer:
         y_true = np.array(trues, dtype=np.float32)
         y_pred = np.array(preds, dtype=np.float32)
 
-        metrics = RULMetrics.calculate_all_metrics(y_true, y_pred)
+        metrics = RegressionMetrics.calculate(y_true, y_pred)
         metrics["loss"] = float(total_loss / max(1, len(test_loader)))
+
+        for name, fn in self.config.custom_metrics.items():
+            metrics[name] = float(fn(y_true, y_pred))
+
         return metrics, y_pred, y_true

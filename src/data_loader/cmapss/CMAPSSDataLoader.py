@@ -45,7 +45,7 @@ class CMAPSSDataLoader:
     def __init__(self, data_path: str = None):
         if data_path is None:
             # Resolve relative to project root (parent of src/)
-            data_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'data' / 'CMAPSS')
+            data_path = str(Path(__file__).resolve().parent.parent.parent.parent / 'data' / 'raw' /'CMAPSS')
         self.data_path = Path(data_path)
         self.sensor_cols = [f'sensor_{i}' for i in range(1, 22)]
         self.setting_cols = ['setting_1', 'setting_2', 'setting_3']
