@@ -393,7 +393,7 @@ class Trainer:
             train_loss = self.train_epoch(epoch)
             val_metrics = self.validate_epoch(epoch)
 
-            # Scheduler: ReduceLROnPlateau expects a metric value after validation. :contentReference[oaicite:5]{index=5}
+            # Scheduler: ReduceLROnPlateau expects a metric value after validation. 
             sched_key = self.config.scheduler_metric
             if self.scheduler is not None:
                 metric_for_sched = float(val_metrics.get(sched_key, val_metrics["loss"]))

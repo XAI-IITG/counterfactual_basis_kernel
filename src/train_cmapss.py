@@ -159,7 +159,9 @@ def load_and_preprocess_data(
     print(f"Train batches = {len(train_loader)} | Val batches = {len(val_loader)} | Test batches = {len(test_loader)}")
 
     #save the preprocess dict in json
-    with open(Path(__file__).parent.parent / "outputs" / "preprocess.json", "w") as f:
+    preprocess_dir = Path(__file__).parent.parent / "outputs" / "cmapss" / subset
+    preprocess_dir.mkdir(parents=True, exist_ok=True)
+    with open(preprocess_dir / "preprocess.json", "w") as f:
         import json
         json.dump(preprocess, f, indent=4)
 
@@ -206,7 +208,7 @@ def train_single_model(
         gradient_clip_value=1.0,
         save_path=save_path,
         dataset_name="cmapss",
-        model_name=f"{model_type}_best",
+        model_name=f"{model_type}_{preprocess['subset']}_best",
         custom_metrics={"nasa_score": NASAScore.compute},
         progress_bar_extra_metric="nasa_score",
     )
@@ -240,7 +242,7 @@ def main():
         var_threshold=0.01,
     )
 
-    save_path = str(Path(__file__).parent.parent / "outputs" / "saved_models")
+    save_path = str(Path(__file__).parent.parent / "outputs" / "cmapss" / "FD001" / "saved_models")
     os.makedirs(save_path, exist_ok=True)
 
     models_config = {

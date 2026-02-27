@@ -1,0 +1,12 @@
+{
+  "epoch": 48,
+  "best_epoch": 48,
+  "best_score": 207.92432552622998,
+  "monitor_metric": "loss",
+  "monitor_mode": "min",
+  "weights_file": "transformer_FD002_best_best.pth",
+  "ckpt_file": "transformer_FD002_best_best.ckpt",
+  "n_features": 23,
+  "sequence_length": null,
+  "max_rul": 125
+}

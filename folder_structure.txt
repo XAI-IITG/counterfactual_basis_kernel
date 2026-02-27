@@ -1,165 +1,145 @@
 .
-├── data
-│   └── CMAPSS
-│       ├── CMAPSSData.zip
-│       ├── Damage Propagation Modeling.pdf
-│       ├── readme.txt
-│       ├── RUL_FD001.txt
-│       ├── RUL_FD002.txt
-│       ├── RUL_FD003.txt
-│       ├── RUL_FD004.txt
-│       ├── test_FD001.txt
-│       ├── test_FD002.txt
-│       ├── test_FD003.txt
-│       ├── test_FD004.txt
-│       ├── train_FD001.txt
-│       ├── train_FD002.txt
-│       ├── train_FD003.txt
-│       └── train_FD004.txt
+├── .gitignore
+├── .vscode/
+│   └── settings.json
+├── README.md
 ├── folder_structure.txt
 ├── main.py
-├── notebooks
-│   ├── 002_model_evaluations_Viz.ipynb
-│   ├── 005_generate_counterfactuals.ipynb
-│   ├── 01_EDA.ipynb
-│   ├── 02_model_training.ipynb
-│   ├── 03_model_prototyping.ipynb
-│   └── 05_counterfactuals_bsplines.ipynb
-├── outputs
-│   ├── counterfactuals_test_unit_24.png
-│   ├── counterfactuals_train_unit_42.png
-│   ├── interpretability
-│   ├── prevs_00
-│   │   ├── explanations
-│   │   │   ├── attributions.npy
-│   │   │   ├── global_importance.csv
-│   │   │   ├── sample_statistics.csv
-│   │   │   ├── summary_report.txt
-│   │   │   ├── temporal_importance.csv
-│   │   │   └── temporal_importance.npy
-│   │   ├── results
-│   │   ├── saved_models
-│   │   │   ├── FD001_scaler.json
-│   │   │   ├── LSTM_best.pth
-│   │   │   ├── LSTM_checkpoint.pth
-│   │   │   └── prev
-│   │   │       ├── cnn_lstm_model_best.pth
-│   │   │       ├── cnn_lstm_model_checkpoint.pth
-│   │   │       ├── cnn_lstm_model_final.pth
-│   │   │       ├── cnn_lstm_model_history.json
-│   │   │       ├── gru_model_best.pth
-│   │   │       ├── gru_model_checkpoint.pth
-│   │   │       ├── gru_model_final.pth
-│   │   │       ├── gru_model_history.json
-│   │   │       ├── lstm_model_best.pth
-│   │   │       ├── lstm_model_checkpoint.pth
-│   │   │       ├── lstm_model_final.pth
-│   │   │       ├── lstm_model_history.json
-│   │   │       ├── transformer_model_best.pth
-│   │   │       ├── transformer_model_checkpoint.pth
-│   │   │       ├── transformer_model_final.pth
-│   │   │       └── transformer_model_history.json
-│   │   ├── shap_results
-│   │   │   ├── global_importance.csv
-│   │   │   ├── shap_values.npy
-│   │   │   ├── temporal_importance.csv
-│   │   │   └── temporal_importance.npy
-│   │   └── visualizations
-│   │       ├── pev
-│   │       │   ├── cnn_lstm_predictions.png
-│   │       │   ├── gru_predictions.png
-│   │       │   ├── lstm_predictions.png
-│   │       │   ├── model_comparison.png
-│   │       │   ├── training_comparison.png
-│   │       │   └── transformer_predictions.png
-│   │       └── shap
-│   │           ├── global_importance.png
-│   │           ├── sample_0_analysis.png
-│   │           ├── sample_0_detailed.png
-│   │           ├── sample_15_detailed.png
-│   │           ├── sample_23_detailed.png
-│   │           ├── sample_25_analysis.png
-│   │           ├── sample_29_detailed.png
-│   │           ├── sample_46_detailed.png
-│   │           ├── sample_50_analysis.png
-│   │           ├── sample_75_analysis.png
-│   │           ├── sample_7_detailed.png
-│   │           ├── sample_92_detailed.png
-│   │           ├── shap_dependence_plots.png
-│   │           ├── shap_summary_plots.png
-│   │           ├── shap_temporal_importance.png
-│   │           ├── shap_temporal_stages.png
-│   │           ├── temporal_importance.png
-│   │           ├── temporal_shap_evolution_sample_0.png
-│   │           ├── temporal_shap_evolution_sample_23.png
-│   │           ├── temporal_shap_evolution_sample_46.png
-│   │           ├── temporal_shap_evolution_sample_92.png
-│   │           └── temporal_stages.png
-│   ├── saved_models
-│   │   ├── CNNLSTM_best.pth
-│   │   ├── CNNLSTM_checkpoint.pth
-│   │   ├── CNNLSTM_final.pth
-│   │   ├── CNNLSTM_history.json
-│   │   ├── FD001_scaler.json
-│   │   ├── GRU_best.pth
-│   │   ├── GRU_checkpoint.pth
-│   │   ├── GRU_final.pth
-│   │   ├── GRU_history.json
-│   │   ├── LSTM_best.pth
-│   │   ├── LSTM_checkpoint.pth
-│   │   ├── LSTM_final.pth
-│   │   ├── LSTM_history.json
-│   │   ├── results_all.pkl
-│   │   ├── Transformer_best.pth
-│   │   ├── Transformer_checkpoint.pth
-│   │   ├── Transformer_final.pth
-│   │   └── Transformer_history.json
-│   └── visualizations
-│       └── training_comparison.png
-├── README.md
 ├── requirements.txt
-└── src
-    ├── baselines
-    │   ├── comte.py
-    │   ├── counts.py
-    │   ├── __init__.py
-    │   └── interface.py
-    ├── counterfactuals
-    │   ├── bases.png
-    │   ├── basis.py
-    │   ├── core2.py
-    │   ├── core3.py
-    │   ├── core.py
-    │   ├── __init__.py
-    │   ├── losses.py
-    │   ├── metrics.py
-    │   └── plot_basis.py
-    ├── data_loader
-    │   ├── cmapss
-    │   │   ├── CMAPSSDataLoader.py
-    │   │   ├── CMAPSSDatasetWrapper.py
-    │   │   ├── CMAPSSTimeSeriesDataset.py
-    │   │   └── __init__.py
-    │   └── __init__.py
-    ├── evaluation
-    │   ├── benchmark.py
-    │   ├── __init__.py
-    │   └── metrics.py
-    ├── __init__.py
-    ├── models
-    │   ├── CNNLSTMModel.py
-    │   ├── GRUModel.py
-    │   ├── __init__.py
-    │   ├── LSTMModel.py
-    │   └── TransformerModel.py
-    ├── trainer
-    │   ├── __Trainer_Old.py
-    │   └── Trainer.py
-    ├── train.py
-    └── utils
-        ├── EarlyStopping.py
-        ├── __init__.py
-        ├── model_train_utils.py
-        └── plots.py
-
-26 directories, 137 files
+├── data/
+│   ├── external/
+│   ├── processed/
+│   │   ├── AQI_India/
+│   │   └── ieee_phm_cache/
+│   ├── raw/
+│   │   ├── AQI_India/
+│   │   ├── CMAPSS/
+│   │   │   ├── train_FD001.txt … train_FD004.txt
+│   │   │   ├── test_FD001.txt … test_FD004.txt
+│   │   │   ├── RUL_FD001.txt … RUL_FD004.txt
+│   │   │   ├── CMAPSSData.zip
+│   │   │   ├── Damage Propagation Modeling.pdf
+│   │   │   └── readme.txt
+│   │   ├── IEEE_PHM/
+│   │   │   └── dataset/
+│   │   ├── OpportunityUCIDataset/
+│   │   │   ├── dataset/
+│   │   │   │   ├── S*-ADL*.dat, S*-Drill.dat
+│   │   │   │   ├── column_names.txt
+│   │   │   │   └── label_legend.txt
+│   │   │   ├── doc/
+│   │   │   │   └── documentation.html
+│   │   │   └── scripts/
+│   │   │       ├── benchmark/
+│   │   │       └── DataExplorer/
+│   │   └── wind_turbine/
+│   │       ├── train/
+│   │       └── test/
+├── notebooks/
+│   ├── air_quality_uci/
+│   ├── AQI_India/
+│   │   └── calculating-aqi-air-quality-index-tutorial.ipynb
+│   ├── cmapss/
+│   │   ├── 01_EDA.ipynb
+│   │   ├── 02_model_training.ipynb
+│   │   ├── 03_model_prototyping.ipynb
+│   │   ├── 05_counterfactuals_bsplines.ipynb
+│   │   ├── 005_generate_counterfactuals.ipynb
+│   │   ├── counterfactuals_cmapss_v2.ipynb
+│   │   └── counterfactuals_cmapss_bak.ipynb
+│   ├── ieee_phm/
+│   │   └── phm2012_rul_tcn_transformer_notebook.ipynb
+│   ├── opportunity_uci/
+│   └── wind_turbine/
+│       ├── 02_wind_turbine_counterfactuals.ipynb
+│       └── 02_wind_turbine_counterfactuals_v2.ipynb
+├── outputs/
+│   ├── Air_Quality_UCI/
+│   ├── cmapss/
+│   │   ├── FD001/
+│   │   │   ├── saved_models/
+│   │   │   │   ├── {lstm,gru,cnn_lstm,transformer}_model_{best,checkpoint,final}.pth
+│   │   │   │   └── *_model_history.json
+│   │   │   ├── shap_results/
+│   │   │   │   ├── global_importance.csv
+│   │   │   │   ├── shap_values.npy
+│   │   │   │   └── temporal_importance.{csv,npy}
+│   │   │   └── visualizations/
+│   │   │       ├── pev/
+│   │   │       └── shap/
+│   │   ├── saved_models/
+│   │   │   ├── {LSTM,GRU,CNNLSTM,Transformer}_{best,checkpoint,final}.pth
+│   │   │   ├── {LSTM,GRU,CNNLSTM,Transformer}_history.json
+│   │   │   ├── FD001_scaler.json
+│   │   │   └── results_all.pkl
+│   │   └── visualizations/
+│   │       └── training_comparison.png
+│   ├── ieee_phm_bearing/
+│   ├── oportunity_uci/
+│   └── wind_turbine/
+│       └── saved_models/
+├── src/
+│   ├── __init__.py
+│   ├── sanity_check.py
+│   ├── train_cmapss.py
+│   ├── train_cmaps2.py
+│   ├── train_bearing_phm.py
+│   ├── baselines/
+│   │   ├── __init__.py
+│   │   ├── interface.py
+│   │   ├── comte.py
+│   │   └── counts.py
+│   ├── counterfactuals/
+│   │   ├── __init__.py
+│   │   ├── core.py
+│   │   ├── core2.py
+│   │   ├── core3.py
+│   │   ├── basis.py
+│   │   ├── losses.py
+│   │   ├── metrics.py
+│   │   ├── plot_basis.py
+│   │   ├── usage.md
+│   │   ├── temp_data.md
+│   │   ├── bases.png
+│   │   └── utils/
+│   │       └── cmapss/
+│   │           ├── load_data.py
+│   │           └── cf_utils.py
+│   ├── data_loader/
+│   │   ├── cmapss/
+│   │   │   ├── CMAPSSDataLoader.py
+│   │   │   ├── CMAPSSDatasetWrapper.py
+│   │   │   ├── CMAPSSTimeSeriesDataset.py
+│   │   │   ├── CMAPSSTorchDataloader.py
+│   │   │   └── __init__.py
+│   │   └── ieee_phm/
+│   │       ├── IEEEPHMDataLoader.py
+│   │       └── DataConfig.py
+│   ├── evaluation/
+│   │   ├── __init__.py
+│   │   ├── benchmark.py
+│   │   └── metrics.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── cmapss/
+│   │   │   ├── LSTMModel.py
+│   │   │   ├── GRUModel.py
+│   │   │   ├── CNNLSTMModel.py
+│   │   │   └── TransformerModel.py
+│   │   ├── ieee_phm/
+│   │   │   ├── LSTMModel.py
+│   │   │   ├── GRUModel.py
+│   │   │   ├── CNNLSTMModel.py
+│   │   │   └── TransformerModel.py
+│   │   └── wind_turbine/
+│   │       └── anomaly_transformer/
+│   │           ├── solver.py
+│   │           └── shap_.py
+│   ├── trainer/
+│   │   ├── Trainer.py
+│   │   └── __Trainer_Old.py
+│   └── utils/
+│       ├── __init__.py
+│       ├── EarlyStopping.py
+│       ├── model_train_utils.py
+│       └── plots.py
