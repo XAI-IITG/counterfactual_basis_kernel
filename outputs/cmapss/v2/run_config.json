@@ -1,0 +1,143 @@
+{
+  "data": {
+    "data_dir": "/workspace/nirban/projects/counterfactual_basis_kernel/data/processed/CMAPSS/data",
+    "subsets": [
+      "FD001",
+      "FD002",
+      "FD003",
+      "FD004"
+    ],
+    "seq_len": 50,
+    "batch_size": 32,
+    "smoothing_window": 3,
+    "split_context": false,
+    "seed": 42,
+    "feature_mode": "selected",
+    "piecewise_rul_cap": 125,
+    "val_strategy": "engine",
+    "val_fraction": 0.2,
+    "val_tail_multiple": 2,
+    "test_last_window_only": true,
+    "shuffle_train": true,
+    "target_normalisation": true,
+    "cluster_by_operating_condition": true,
+    "n_clusters": 6,
+    "num_workers": 0,
+    "pin_memory": false,
+    "drop_constant_features": false
+  },
+  "run": {
+    "output_root": "/workspace/nirban/projects/counterfactual_basis_kernel/outputs/cmapss/v2",
+    "device": null,
+    "seed": 42,
+    "save_test_predictions": true,
+    "compute_train_metrics": false,
+    "progress_bar_extra_metric": "nasa_score"
+  },
+  "models": [
+    {
+      "name": "lstm",
+      "epochs": 260,
+      "learning_rate": 0.001,
+      "weight_decay": 1e-05,
+      "optimizer_name": "adamw",
+      "scheduler_name": "reduce_on_plateau",
+      "scheduler_kwargs": {
+        "factor": 0.6,
+        "patience": 12,
+        "min_lr": 1e-06
+      },
+      "monitor_metric": "loss",
+      "early_stopping_patience": 25,
+      "early_stopping_start_epoch": 80,
+      "gradient_clip_value": 1.0,
+      "use_amp": true,
+      "model_kwargs": {
+        "hidden_size": 128,
+        "num_layers": 2,
+        "dropout": 0.2
+      },
+      "loss_name": null,
+      "loss_kwargs": {}
+    },
+    {
+      "name": "cnn_lstm",
+      "epochs": 260,
+      "learning_rate": 0.001,
+      "weight_decay": 1e-05,
+      "optimizer_name": "adamw",
+      "scheduler_name": "reduce_on_plateau",
+      "scheduler_kwargs": {
+        "factor": 0.6,
+        "patience": 12,
+        "min_lr": 1e-06
+      },
+      "monitor_metric": "loss",
+      "early_stopping_patience": 25,
+      "early_stopping_start_epoch": 80,
+      "gradient_clip_value": 1.0,
+      "use_amp": true,
+      "model_kwargs": {
+        "hidden_size": 128,
+        "num_layers": 2,
+        "dropout": 0.2
+      },
+      "loss_name": null,
+      "loss_kwargs": {}
+    },
+    {
+      "name": "transformer",
+      "epochs": 260,
+      "learning_rate": 0.0005,
+      "weight_decay": 1e-05,
+      "optimizer_name": "adamw",
+      "scheduler_name": "reduce_on_plateau",
+      "scheduler_kwargs": {
+        "factor": 0.6,
+        "patience": 12,
+        "min_lr": 1e-06
+      },
+      "monitor_metric": "loss",
+      "early_stopping_patience": 25,
+      "early_stopping_start_epoch": 80,
+      "gradient_clip_value": 1.0,
+      "use_amp": true,
+      "model_kwargs": {
+        "d_model": 128,
+        "nhead": 4,
+        "num_layers": 2,
+        "dropout": 0.2
+      },
+      "loss_name": null,
+      "loss_kwargs": {}
+    },
+    {
+      "name": "star",
+      "epochs": 260,
+      "learning_rate": 0.0005,
+      "weight_decay": 1e-05,
+      "optimizer_name": "adamw",
+      "scheduler_name": "reduce_on_plateau",
+      "scheduler_kwargs": {
+        "factor": 0.6,
+        "patience": 12,
+        "min_lr": 1e-06
+      },
+      "monitor_metric": "loss",
+      "early_stopping_patience": 25,
+      "early_stopping_start_epoch": 80,
+      "gradient_clip_value": 1.0,
+      "use_amp": true,
+      "model_kwargs": {
+        "patch_len": 5,
+        "num_scales": 3,
+        "d_model": 128,
+        "nhead": 4,
+        "ff_dim": 256,
+        "dropout": 0.2
+      },
+      "loss_name": null,
+      "loss_kwargs": {}
+    }
+  ]
+}

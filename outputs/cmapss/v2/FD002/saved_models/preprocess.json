@@ -1,0 +1,61 @@
+{
+    "subset": "FD002",
+    "seq_len": 50,
+    "max_rul": 125.0,
+    "feature_list": [
+        "unit_number",
+        "time_cycles",
+        "setting_1",
+        "setting_2",
+        "setting_3",
+        "s_1",
+        "s_2",
+        "s_8",
+        "s_13",
+        "s_14",
+        "s_19",
+        "RUL"
+    ],
+    "feature_cols": [
+        "setting_1",
+        "setting_2",
+        "setting_3",
+        "s_1",
+        "s_2",
+        "s_8",
+        "s_13",
+        "s_14",
+        "s_19"
+    ],
+    "n_features": 9,
+    "n_context": 3,
+    "batch_size": 32,
+    "smoothing_window": 3,
+    "use_clustering": true,
+    "split_context": false,
+    "global_min": [
+        0.0,
+        0.0,
+        60.0,
+        445.0,
+        535.53,
+        1914.77,
+        2027.61,
+        7848.36,
+        84.93,
+        0.0
+    ],
+    "global_range": [
+        42.008,
+        0.842,
+        40.0,
+        73.66999999999996,
+        108.99000000000001,
+        473.6199999999999,
+        362.8700000000001,
+        420.1400000000003,
+        15.069999999999993,
+        125.0
+    ],
+    "label_mode": "cycles"
+}

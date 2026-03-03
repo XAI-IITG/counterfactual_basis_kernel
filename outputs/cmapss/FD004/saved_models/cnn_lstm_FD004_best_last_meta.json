@@ -1,0 +1,12 @@
+{
+  "epoch": 144,
+  "best_epoch": 7,
+  "best_score": 300.3839347143022,
+  "monitor_metric": "loss",
+  "monitor_mode": "min",
+  "weights_file": "cnn_lstm_FD004_best_last.pth",
+  "ckpt_file": "cnn_lstm_FD004_best_last.ckpt",
+  "n_features": 23,
+  "sequence_length": null,
+  "max_rul": 125
+}

@@ -210,7 +210,7 @@ def train_single_model(
         learning_rate=learning_rate,
         batch_size=train_loader.batch_size,
         early_stopping_patience=25,
-        early_stopping_start_epoch=80,
+        early_stopping_start_epoch=120,
         gradient_clip_value=1.0,
         save_path=save_path,
         dataset_name="cmapss",
@@ -240,15 +240,15 @@ def main():
 
     # ---- Subsets to train on ----
     # subsets = ["FD001", "FD002", "FD003", "FD004"]
-    subsets = [ #"FD002", 
+    subsets = [ "FD002", 
                "FD003", "FD004"]
 
     models_config = {
-        #"lstm": {"lr": 1e-3, "epochs": 160},
+        "lstm": {"lr": 1e-3, "epochs": 260},
         #"gru": {"lr": 1e-3, "epochs": 160},
-        #"cnn_lstm": {"lr": 1e-3, "epochs": 160},
-        "transformer": {"lr": 5e-4, "epochs": 160},
-        #"star": {"lr": 5e-4, "epochs": 160},
+        "cnn_lstm": {"lr": 1e-3, "epochs": 260},
+        "transformer": {"lr": 5e-4, "epochs": 260},
+        "star": {"lr": 5e-4, "epochs": 260},
     }
 
     all_histories = {}

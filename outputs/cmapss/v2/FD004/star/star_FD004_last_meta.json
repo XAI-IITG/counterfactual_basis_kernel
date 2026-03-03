@@ -1,0 +1,14 @@
+{
+  "epoch": 106,
+  "best_epoch": 12,
+  "best_score": 0.026876476835910112,
+  "monitor_metric": "loss",
+  "monitor_mode": "min",
+  "weights_file": "star_FD004_last.pth",
+  "ckpt_file": "star_FD004_last.ckpt",
+  "task_type": "regression",
+  "dataset_name": "cmapss",
+  "n_features": 7,
+  "sequence_length": 50,
+  "label_mode": "piecewise_rul"
+}

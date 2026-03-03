@@ -1,7 +1,7 @@
 {
-  "epoch": 12,
-  "best_epoch": 12,
-  "best_score": 140.94171369179435,
+  "epoch": 2,
+  "best_epoch": 2,
+  "best_score": 105.80098364715991,
   "monitor_metric": "loss",
   "monitor_mode": "min",
   "weights_file": "transformer_FD003_best_best.pth",

@@ -1,0 +1,12 @@
+{
+  "epoch": 2,
+  "best_epoch": 2,
+  "best_score": 0.04173711837198748,
+  "monitor_metric": "loss",
+  "monitor_mode": "min",
+  "weights_file": "gru_bi_best_best.pth",
+  "ckpt_file": "gru_bi_best_best.ckpt",
+  "n_features": 8,
+  "sequence_length": 128,
+  "max_rul": null
+}

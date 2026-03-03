@@ -1,7 +1,7 @@
 {
-  "epoch": 3,
-  "best_epoch": 3,
-  "best_score": 613.4607145429596,
+  "epoch": 27,
+  "best_epoch": 27,
+  "best_score": 531.5259975072905,
   "monitor_metric": "loss",
   "monitor_mode": "min",
   "weights_file": "star_FD002_best_best.pth",

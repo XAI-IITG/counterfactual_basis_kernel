@@ -1,0 +1,14 @@
+{
+  "epoch": 111,
+  "best_epoch": 24,
+  "best_score": 0.006983178396088381,
+  "monitor_metric": "loss",
+  "monitor_mode": "min",
+  "weights_file": "cnn_lstm_best_last.pth",
+  "ckpt_file": "cnn_lstm_best_last.ckpt",
+  "task_type": "regression",
+  "dataset_name": "aep",
+  "n_features": 21,
+  "sequence_length": 12,
+  "label_mode": null
+}

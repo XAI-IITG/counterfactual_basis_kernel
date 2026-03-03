@@ -1,0 +1,14 @@
+{
+  "epoch": 3,
+  "best_epoch": 3,
+  "best_score": 0.030378510382608512,
+  "monitor_metric": "loss",
+  "monitor_mode": "min",
+  "weights_file": "cnn_lstm_FD002_best.pth",
+  "ckpt_file": "cnn_lstm_FD002_best.ckpt",
+  "task_type": "regression",
+  "dataset_name": "cmapss",
+  "n_features": 9,
+  "sequence_length": 50,
+  "label_mode": "piecewise_rul"
+}

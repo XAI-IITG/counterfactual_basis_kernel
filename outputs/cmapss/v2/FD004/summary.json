@@ -1,0 +1,42 @@
+{
+  "lstm": {
+    "run_dir": "/workspace/nirban/projects/counterfactual_basis_kernel/outputs/cmapss/v2/FD004/lstm",
+    "test_metrics": {
+      "loss": 0.019615128389711186,
+      "rmse": 17.50675267318746,
+      "mae": 12.720102310180664,
+      "r2": 0.8340966701507568,
+      "nasa_score": 1808.353759765625
+    }
+  },
+  "cnn_lstm": {
+    "run_dir": "/workspace/nirban/projects/counterfactual_basis_kernel/outputs/cmapss/v2/FD004/cnn_lstm",
+    "test_metrics": {
+      "loss": 0.02610659221923048,
+      "rmse": 20.196918003155133,
+      "mae": 14.052968978881836,
+      "r2": 0.779192328453064,
+      "nasa_score": 3760.851318359375
+    }
+  },
+  "transformer": {
+    "run_dir": "/workspace/nirban/projects/counterfactual_basis_kernel/outputs/cmapss/v2/FD004/transformer",
+    "test_metrics": {
+      "loss": 0.022434590772810736,
+      "rmse": 18.7227259315676,
+      "mae": 12.448311805725098,
+      "r2": 0.8102498650550842,
+      "nasa_score": 2953.71044921875
+    }
+  },
+  "star": {
+    "run_dir": "/workspace/nirban/projects/counterfactual_basis_kernel/outputs/cmapss/v2/FD004/star",
+    "test_metrics": {
+      "loss": 0.02241552774740266,
+      "rmse": 18.714769962414547,
+      "mae": 13.75268268585205,
+      "r2": 0.8104110956192017,
+      "nasa_score": 1958.5994873046875
+    }
+  }
+}
